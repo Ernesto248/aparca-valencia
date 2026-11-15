@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertCircle, CarFront, Database, Info, LoaderCircle, MapPinned } from "lucide-react";
+import { AlertCircle, CarFront, ChevronUp, Database, ExternalLink, Info, LoaderCircle, MapPinned } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { getDataStatus, geocode, getNearby, getRawFeatures, getRecommendations } from "@/lib/api";
 import type { Destination, GeocodeCandidate } from "@/lib/types";
@@ -27,6 +27,7 @@ export function ParkingApp() {
   const [radius, setRadius] = useState(500);
   const [manualMode, setManualMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mapFocus, setMapFocus] = useState(false);
   const [detailBbox, setDetailBbox] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const geocodeAbortRef = useRef<AbortController | null>(null);
@@ -72,6 +73,7 @@ export function ParkingApp() {
     });
     setCandidates([]);
     setSelectedId(null);
+    setMapFocus(false);
   }
 
   function submitSearch(event: FormEvent) {
@@ -86,6 +88,7 @@ export function ParkingApp() {
     setDestination({ latitude, longitude, label: "Destino elegido en el mapa" });
     setManualMode(false);
     setSelectedId(null);
+    setMapFocus(false);
   }, []);
 
   const locate = () => {
@@ -95,15 +98,31 @@ export function ParkingApp() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => setDestination({ latitude: coords.latitude, longitude: coords.longitude, label: "Mi ubicación" }),
+      ({ coords }) => {
+        setDestination({ latitude: coords.latitude, longitude: coords.longitude, label: "Mi ubicación" });
+        setSelectedId(null);
+        setMapFocus(false);
+      },
       () => setLocationError("No se ha podido obtener tu ubicación. Revisa el permiso del navegador."),
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 }
     );
   };
 
   const items = recommendationsQuery.data?.items ?? [];
+  const selectedItem = items.find((item) => item.id === selectedId) ?? null;
   const loading = zonesQuery.isFetching || recommendationsQuery.isFetching;
   const apiError = zonesQuery.error ?? recommendationsQuery.error ?? geocodeMutation.error;
+
+  const selectRecommendation = useCallback((id: string) => {
+    setSelectedId(id);
+    setMapFocus(true);
+  }, []);
+
+  const changeRadius = (value: number) => {
+    setRadius(value);
+    setSelectedId(null);
+    setMapFocus(false);
+  };
 
   return (
     <main className="relative h-[100dvh] min-h-[560px] overflow-hidden bg-[var(--sand)]">
@@ -133,9 +152,36 @@ export function ParkingApp() {
         </div>
       </header>
 
-      <section className="absolute inset-x-0 bottom-0 z-10 max-h-[72dvh] overscroll-contain overflow-y-auto rounded-t-[28px] bg-[var(--sand)]/98 px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-12px_40px_rgba(16,55,62,.16)] backdrop-blur md:inset-y-24 md:left-5 md:right-auto md:max-h-none md:w-[390px] md:rounded-3xl md:p-5">
+      <section className={cn(
+        "absolute inset-x-0 bottom-0 z-10 overscroll-contain overflow-y-auto rounded-t-[28px] bg-[var(--sand)]/98 px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-12px_40px_rgba(16,55,62,.16)] backdrop-blur md:inset-y-24 md:left-5 md:right-auto md:max-h-none md:w-[390px] md:rounded-3xl md:p-5",
+        mapFocus && selectedItem ? "max-h-[190px]" : "max-h-[72dvh]"
+      )}>
         <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-slate-300 md:hidden" />
-        <SearchPanel
+        {mapFocus && selectedItem && (
+          <div className="animate-rise md:hidden" aria-live="polite">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[var(--coral-strong)]">Zona resaltada en coral</p>
+                <h2 className="mt-1 truncate text-lg font-extrabold">{selectedItem.street_name}</h2>
+                <p className="mt-1 text-xs text-slate-600">A {Math.round(selectedItem.distance_meters)} m · disponibilidad desconocida</p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => setMapFocus(false)}>
+                <ChevronUp className="size-4" /> Ver lista
+              </Button>
+            </div>
+            <a
+              className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[var(--petrol)]"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${selectedItem.latitude},${selectedItem.longitude}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Cómo llegar <ExternalLink className="size-4" />
+            </a>
+          </div>
+        )}
+
+        <div className={cn(mapFocus && selectedItem && "hidden md:block")}>
+          <SearchPanel
           query={query}
           onQueryChange={setQuery}
           onSubmit={submitSearch}
@@ -145,7 +191,7 @@ export function ParkingApp() {
           manualMode={manualMode}
           onManualMode={() => setManualMode((value) => !value)}
           onLocate={locate}
-        />
+          />
 
         {destination && (
           <div className="mt-4 animate-rise">
@@ -154,7 +200,7 @@ export function ParkingApp() {
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4 md:grid-cols-4" aria-label="Radio de búsqueda">
               {RADII.map((value) => (
-                <Button key={value} size="sm" variant={radius === value ? "default" : "secondary"} onClick={() => setRadius(value)} className="flex-1 px-2">
+                <Button key={value} size="sm" variant={radius === value ? "default" : "secondary"} onClick={() => changeRadius(value)} className="flex-1 px-2">
                   {value >= 1000 ? "1 km" : `${value} m`}
                 </Button>
               ))}
@@ -190,7 +236,7 @@ export function ParkingApp() {
           {destination && !loading && items.length === 0 && !apiError && <p className="rounded-2xl bg-white p-4 text-sm text-slate-600">No hay cobertura municipal en este radio. Prueba a ampliarlo o elige otro punto.</p>}
           <div className="space-y-3">
             {items.map((item, index) => (
-              <RecommendationCard key={item.id} item={item} index={index} selected={selectedId === item.id} onSelect={() => setSelectedId(item.id)} />
+              <RecommendationCard key={item.id} item={item} index={index} selected={selectedId === item.id} onSelect={() => selectRecommendation(item.id)} />
             ))}
           </div>
         </div>
@@ -201,6 +247,7 @@ export function ParkingApp() {
         <footer className="mt-4 flex justify-between pb-1 text-[11px] text-slate-500 md:hidden">
           <Link href="/fuentes">Fuentes y atribución</Link><Link href="/privacidad">Privacidad</Link>
         </footer>
+        </div>
       </section>
 
       <div className={cn("pointer-events-none absolute inset-0 z-20 border-4 border-transparent transition", manualMode && "border-[var(--coral)]")} />

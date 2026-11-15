@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.skip(process.env.REAL_E2E !== "1", "Se ejecuta únicamente contra una beta desplegada");
 
-test("completa el flujo principal con datos reales", async ({ page }) => {
+test("completa el flujo principal con datos reales", async ({ page }, testInfo) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
@@ -19,9 +19,16 @@ test("completa el flujo principal con datos reales", async ({ page }) => {
   await expect(recommendation).toBeVisible();
   await recommendation.click();
   await expect(recommendation.locator("xpath=ancestor::button")).toHaveAttribute("aria-pressed", "true");
+  if (testInfo.project.name === "mobile") {
+    await expect(page.getByText("Zona resaltada en coral")).toBeVisible();
+  }
 
   const popupPromise = page.waitForEvent("popup");
-  await page.getByRole("button", { name: /Cómo llegar/i }).first().click();
+  await page
+    .getByRole("button", { name: /Cómo llegar/i })
+    .or(page.getByRole("link", { name: /Cómo llegar/i }))
+    .first()
+    .click();
   const popup = await popupPromise;
   await popup.waitForLoadState("domcontentloaded");
   await expect(popup).toHaveURL(/google\.com\/maps\/dir/);

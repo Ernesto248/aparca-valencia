@@ -5,7 +5,7 @@ import * as maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap, MapMouseEvent, StyleSpecification } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import { useEffect, useRef } from "react";
-import type { FeatureCollection as GeoJSONFeatureCollection } from "geojson";
+import type { FeatureCollection as GeoJSONFeatureCollection, Geometry } from "geojson";
 import type { Destination, FeatureCollection } from "@/lib/types";
 
 maplibregl.setWorkerUrl(
@@ -34,6 +34,54 @@ function withIds(collection: FeatureCollection): GeoJSONFeatureCollection {
       properties: { ...feature.properties, id: feature.id }
     }))
   } as GeoJSONFeatureCollection;
+}
+
+function geometryBounds(geometry: Geometry): maplibregl.LngLatBounds | null {
+  const bounds = new maplibregl.LngLatBounds();
+
+  function extendCoordinates(value: unknown) {
+    if (!Array.isArray(value)) return;
+    if (
+      value.length >= 2 &&
+      typeof value[0] === "number" &&
+      typeof value[1] === "number"
+    ) {
+      bounds.extend([value[0], value[1]]);
+      return;
+    }
+    value.forEach(extendCoordinates);
+  }
+
+  if (geometry.type === "GeometryCollection") {
+    geometry.geometries.forEach((item) => {
+      const itemBounds = geometryBounds(item);
+      if (itemBounds) {
+        bounds.extend(itemBounds.getSouthWest());
+        bounds.extend(itemBounds.getNorthEast());
+      }
+    });
+  } else {
+    extendCoordinates(geometry.coordinates);
+  }
+
+  return bounds.isEmpty() ? null : bounds;
+}
+
+function focusZone(map: MapLibreMap, zones: FeatureCollection, selectedId: string) {
+  const feature = zones.features.find((item) => item.id === selectedId);
+  if (!feature) return;
+  const bounds = geometryBounds(feature.geometry);
+  if (!bounds) return;
+
+  const mobile = window.innerWidth < 768;
+  map.fitBounds(bounds, {
+    padding: mobile
+      ? { top: 112, right: 28, bottom: 210, left: 28 }
+      : { top: 104, right: 64, bottom: 64, left: 450 },
+    maxZoom: 17.5,
+    duration: 700,
+    essential: true
+  });
 }
 
 function createStyle(): StyleSpecification {
@@ -114,11 +162,18 @@ export default function ParkingMap({
         paint: { "line-color": "#167085", "line-width": 4, "line-opacity": 0.88 }
       });
       map.addLayer({
+        id: "zone-selected-shadow",
+        type: "line",
+        source: "zones",
+        filter: ["==", ["get", "id"], current.selectedId ?? ""],
+        paint: { "line-color": "#ffffff", "line-width": 13, "line-opacity": 0.96 }
+      });
+      map.addLayer({
         id: "zone-selected",
         type: "line",
         source: "zones",
         filter: ["==", ["get", "id"], current.selectedId ?? ""],
-        paint: { "line-color": "#e86f51", "line-width": 7 }
+        paint: { "line-color": "#e86f51", "line-width": 8, "line-opacity": 1 }
       });
       map.addSource("raw-features", { type: "geojson", data: withIds(current.rawFeatures) });
       map.addLayer({
@@ -154,6 +209,7 @@ export default function ParkingMap({
           essential: true
         });
       }
+      if (current.selectedId) focusZone(map, current.zones, current.selectedId);
       map.addLayer({
         id: "destination",
         type: "circle",
@@ -216,9 +272,12 @@ export default function ParkingMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.getLayer("zone-selected")) return;
-    map.setFilter("zone-selected", ["==", ["get", "id"], selectedId ?? ""]);
-  }, [selectedId]);
+    if (!map?.getLayer("zone-selected") || !map.getLayer("zone-selected-shadow")) return;
+    const filter: maplibregl.FilterSpecification = ["==", ["get", "id"], selectedId ?? ""];
+    map.setFilter("zone-selected", filter);
+    map.setFilter("zone-selected-shadow", filter);
+    if (selectedId) focusZone(map, zones, selectedId);
+  }, [selectedId, zones]);
 
   return (
     <div

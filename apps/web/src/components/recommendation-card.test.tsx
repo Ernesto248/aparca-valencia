@@ -23,7 +23,7 @@ describe("RecommendationCard", () => {
   it("muestra evidencia sin afirmar disponibilidad", () => {
     render(<RecommendationCard item={item} index={0} selected={false} onSelect={() => undefined} />);
     expect(screen.getByText("Avinguda del Cid")).toBeInTheDocument();
-    expect(screen.getByText(/12 geometrías/)).toBeInTheDocument();
+    expect(screen.getByText(/12 segmentos cartográficos/)).toBeInTheDocument();
     expect(screen.getByText("Prioridad 75/100")).toBeInTheDocument();
     expect(screen.getByText("Disponibilidad desconocida")).toBeInTheDocument();
     expect(screen.queryByText(/plazas libres/i)).not.toBeInTheDocument();
@@ -32,7 +32,7 @@ describe("RecommendationCard", () => {
   it("permite seleccionar la zona", () => {
     const onSelect = vi.fn();
     render(<RecommendationCard item={item} index={0} selected={false} onSelect={onSelect} />);
-    fireEvent.click(screen.getByRole("button", { name: /Avinguda del Cid/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver zona" }));
     expect(onSelect).toHaveBeenCalledOnce();
   });
 });

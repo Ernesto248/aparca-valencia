@@ -4,6 +4,10 @@ Aplicación web mobile-first para localizar zonas documentadas de aparcamiento n
 
 > Mostramos zonas de aparcamiento no regulado según datos municipales. La disponibilidad de plazas no está confirmada. Comprueba siempre la señalización.
 
+Beta pública: [aparca-valencia.vercel.app](https://aparca-valencia.vercel.app) · API: [documentación OpenAPI](https://aparca-valencia.46-202-89-71.sslip.io/docs)
+
+La primera importación completa concilió 282.248 geometrías municipales, sin rechazos, y derivó 6.970 zonas agrupadas. Ese recuento describe evidencia cartográfica, no plazas libres.
+
 ## Arquitectura
 
 - `apps/web`: Next.js, React, TypeScript, Tailwind, MapLibre y TanStack Query.

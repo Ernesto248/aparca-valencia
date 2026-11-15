@@ -130,7 +130,8 @@ async def recommendations(
                 WITH destination AS (
                     SELECT ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326) AS geom
                 )
-                SELECT z.id, z.street_name, z.evidence_count, z.source, z.updated_at,
+                SELECT z.id, z.street_name, z.evidence_count, z.source,
+                       z.updated_at AS imported_at,
                        ST_Distance(z.geom::geography, d.geom::geography) AS distance_meters,
                        ST_Y(ST_Centroid(z.geom)) AS latitude,
                        ST_X(ST_Centroid(z.geom)) AS longitude

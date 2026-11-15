@@ -62,7 +62,7 @@ services:
       NOMINATIM_OSM2PGSQL_CACHE: 2048
       OSM_FILE: /data/valencia.osm.pbf
     volumes:
-      - ./data/osm:/data:ro
+      - ./data/osm:/data
       - nominatim-project:/srv/nominatim-project
     depends_on:
       db:

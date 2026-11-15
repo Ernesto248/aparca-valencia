@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertCircle, CarFront, Database, LoaderCircle, MapPinned } from "lucide-react";
+import { AlertCircle, CarFront, Database, Info, LoaderCircle, MapPinned } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { getDataStatus, geocode, getNearby, getRawFeatures, getRecommendations } from "@/lib/api";
 import type { Destination, GeocodeCandidate } from "@/lib/types";
@@ -106,7 +106,7 @@ export function ParkingApp() {
   const apiError = zonesQuery.error ?? recommendationsQuery.error ?? geocodeMutation.error;
 
   return (
-    <main className="relative h-dvh min-h-[620px] overflow-hidden bg-[var(--sand)]">
+    <main className="relative h-[100dvh] min-h-[560px] overflow-hidden bg-[var(--sand)]">
       <div className="absolute inset-0">
         <ParkingMap
           destination={destination}
@@ -120,11 +120,11 @@ export function ParkingApp() {
         />
       </div>
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 p-3 md:p-5">
-        <div className="pointer-events-auto mx-auto flex max-w-7xl items-center justify-between rounded-2xl bg-[var(--petrol)]/96 px-4 py-3 text-white shadow-xl backdrop-blur">
-          <div className="flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-xl bg-white/12"><CarFront className="size-5" /></span>
-            <div><p className="text-lg font-extrabold leading-none">Aparca València</p><p className="mt-1 text-[11px] text-white/70">Datos abiertos · recomendación experimental</p></div>
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 p-2 sm:p-3 md:p-5">
+        <div className="pointer-events-auto mx-auto flex max-w-7xl items-center justify-between rounded-2xl bg-[var(--petrol)]/96 px-3 py-2.5 text-white shadow-xl backdrop-blur sm:px-4 sm:py-3">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/12 sm:size-10"><CarFront className="size-5" /></span>
+            <div className="min-w-0"><p className="truncate text-base font-extrabold leading-none sm:text-lg">Aparca València</p><p className="mt-1 hidden truncate text-[11px] text-white/70 min-[360px]:block">Datos abiertos · sin ocupación en tiempo real</p></div>
           </div>
           <div className="hidden items-center gap-4 text-xs md:flex">
             <Link className="hover:underline" href="/fuentes">Fuentes</Link>
@@ -133,7 +133,7 @@ export function ParkingApp() {
         </div>
       </header>
 
-      <section className="absolute inset-x-0 bottom-0 z-10 max-h-[62dvh] overflow-y-auto rounded-t-[28px] bg-[var(--sand)]/98 p-4 shadow-[0_-12px_40px_rgba(16,55,62,.16)] backdrop-blur md:inset-y-24 md:left-5 md:right-auto md:max-h-none md:w-[390px] md:rounded-3xl md:p-5">
+      <section className="absolute inset-x-0 bottom-0 z-10 max-h-[72dvh] overscroll-contain overflow-y-auto rounded-t-[28px] bg-[var(--sand)]/98 px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-12px_40px_rgba(16,55,62,.16)] backdrop-blur md:inset-y-24 md:left-5 md:right-auto md:max-h-none md:w-[390px] md:rounded-3xl md:p-5">
         <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-slate-300 md:hidden" />
         <SearchPanel
           query={query}
@@ -152,7 +152,7 @@ export function ParkingApp() {
             <div className="flex items-center gap-2 text-sm font-bold text-[var(--petrol)]">
               <MapPinned className="size-4" /><span className="truncate">{destination.label}</span>
             </div>
-            <div className="mt-3 flex gap-2" aria-label="Radio de búsqueda">
+            <div className="mt-3 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4 md:grid-cols-4" aria-label="Radio de búsqueda">
               {RADII.map((value) => (
                 <Button key={value} size="sm" variant={radius === value ? "default" : "secondary"} onClick={() => setRadius(value)} className="flex-1 px-2">
                   {value >= 1000 ? "1 km" : `${value} m`}
@@ -176,9 +176,14 @@ export function ParkingApp() {
         )}
 
         <div className="mt-5">
-          <div className="mb-3 flex items-end justify-between">
-            <div><p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--coral-strong)]">Dónde empezar</p><h2 className="mt-1 text-xl font-extrabold">Zonas recomendadas</h2></div>
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div><p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--coral-strong)]">Orden para buscar</p><h2 className="mt-1 text-xl font-extrabold">Zonas documentadas cercanas</h2></div>
             {loading && <LoaderCircle className="size-5 animate-spin text-[var(--petrol)]" />}
+          </div>
+
+          <div className="mb-3 flex gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 text-xs leading-5 text-slate-600">
+            <Info className="mt-0.5 size-4 shrink-0 text-[var(--petrol)]" />
+            <p><strong className="text-[var(--ink)]">¿Por qué este orden?</strong> Un 75 % depende de la cercanía y un 25 % de la evidencia municipal agrupada. Sirve para decidir por dónde empezar a buscar; no calcula plazas libres.</p>
           </div>
 
           {!destination && <p className="rounded-2xl bg-white/80 p-4 text-sm leading-6 text-slate-600">Busca una dirección, pulsa en el mapa o comparte tu ubicación para ver zonas cercanas.</p>}

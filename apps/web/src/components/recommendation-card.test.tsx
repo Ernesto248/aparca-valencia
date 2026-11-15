@@ -24,7 +24,9 @@ describe("RecommendationCard", () => {
     render(<RecommendationCard item={item} index={0} selected={false} onSelect={() => undefined} />);
     expect(screen.getByText("Avinguda del Cid")).toBeInTheDocument();
     expect(screen.getByText(/12 geometrías/)).toBeInTheDocument();
-    expect(screen.queryByText(/disponible/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Prioridad 75/100")).toBeInTheDocument();
+    expect(screen.getByText("Disponibilidad desconocida")).toBeInTheDocument();
+    expect(screen.queryByText(/plazas libres/i)).not.toBeInTheDocument();
   });
 
   it("permite seleccionar la zona", () => {

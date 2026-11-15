@@ -16,6 +16,7 @@ export function RecommendationCard({
   onSelect: () => void;
 }) {
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`;
+  const priorityIndex = Math.round(item.ranking_score * 100);
   return (
     <Card className={cn("p-4 transition", selected && "border-[var(--coral)] ring-2 ring-[var(--coral)]/20")}>
       <button className="w-full text-left" onClick={onSelect} aria-pressed={selected}>
@@ -34,13 +35,16 @@ export function RecommendationCard({
           </div>
         </div>
       </button>
-      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-        <span className="flex items-center gap-1 text-xs text-slate-500">
-          <MapPin className="size-3.5" /> Fuente municipal
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
+        <span className="flex items-center gap-1"><MapPin className="size-3.5" /> Fuente municipal</span>
+        <span className="rounded-full bg-[var(--petrol-soft)] px-2 py-1 font-bold text-[var(--petrol)]" aria-label={`Índice de prioridad ${priorityIndex} de 100; no es una probabilidad`}>
+          Prioridad {priorityIndex}/100
         </span>
+        <span className="rounded-full bg-slate-100 px-2 py-1">Disponibilidad desconocida</span>
         <Button
           size="sm"
           variant="ghost"
+          className="ml-auto"
           onClick={() => window.open(directions, "_blank", "noopener,noreferrer")}
         >
           Cómo llegar <ExternalLink className="size-3.5" />

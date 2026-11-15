@@ -17,7 +17,7 @@ else
   echo "Reusing $REGION_PBF"
 fi
 
-docker compose run --rm --memory 4g --user 0:0 --entrypoint osmium nominatim extract \
+NOMINATIM_MEMORY_LIMIT=4g docker compose run --rm --user 0:0 --entrypoint osmium nominatim extract \
   --bbox=-0.60,39.25,-0.15,39.70 \
   --strategy=complete_ways \
   --overwrite \

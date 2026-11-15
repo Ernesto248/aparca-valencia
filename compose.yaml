@@ -75,7 +75,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 3g
+          memory: ${NOMINATIM_MEMORY_LIMIT:-3g}
     networks: [internal]
 
   map-assets:

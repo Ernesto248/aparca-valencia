@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     database_url: str = "postgresql+asyncpg://aparca:change-me@db:5432/aparca"
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
+    cors_allow_origin_regex: str | None = None
     rate_limit_per_minute: int = Field(default=60, ge=1, le=10_000)
     parking_cluster_distance_meters: float = Field(default=12, ge=1, le=100)
     data_stale_after_hours: int = Field(default=48, ge=1)

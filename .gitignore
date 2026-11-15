@@ -8,6 +8,8 @@ playwright-report/
 .ruff_cache/
 __pycache__/
 *.py[cod]
+*.egg-info/
+*.tsbuildinfo
 
 # Local environments and secrets
 .env

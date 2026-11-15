@@ -4,6 +4,7 @@ set -euo pipefail
 : "${PROTOMAPS_SOURCE_URL:?Set PROTOMAPS_SOURCE_URL to a current official .pmtiles build}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MAP_DIR="$ROOT_DIR/data/maps"
+MAP_NEXT="$MAP_DIR/valencia.pmtiles.next"
 mkdir -p "$MAP_DIR"
 
 if ! command -v pmtiles >/dev/null 2>&1; then
@@ -11,8 +12,11 @@ if ! command -v pmtiles >/dev/null 2>&1; then
   exit 1
 fi
 
-pmtiles extract "$PROTOMAPS_SOURCE_URL" "$MAP_DIR/valencia.pmtiles" \
+rm -f "$MAP_NEXT"
+pmtiles extract "$PROTOMAPS_SOURCE_URL" "$MAP_NEXT" \
   --bbox=-0.60,39.25,-0.15,39.70 --maxzoom=15
+test -s "$MAP_NEXT"
+mv "$MAP_NEXT" "$MAP_DIR/valencia.pmtiles"
 
 ASSET_TMP="$(mktemp -d)"
 trap 'rm -rf "$ASSET_TMP"' EXIT

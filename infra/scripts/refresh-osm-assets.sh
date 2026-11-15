@@ -4,9 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-set -a
-source "$ROOT_DIR/.env"
-set +a
+dotenv_value() {
+  sed -n "s/^$1=//p" "$ROOT_DIR/.env" | tail -n 1
+}
+POSTGRES_USER="${POSTGRES_USER:-$(dotenv_value POSTGRES_USER)}"
+: "${POSTGRES_USER:?POSTGRES_USER is required}"
 
 BUILD_DATE="${PROTOMAPS_BUILD_DATE:-$(date -u -d yesterday +%Y%m%d)}"
 PROTOMAPS_SOURCE_URL="https://build.protomaps.com/${BUILD_DATE}.pmtiles" \

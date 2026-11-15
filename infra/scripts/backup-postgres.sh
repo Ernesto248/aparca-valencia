@@ -5,9 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKUP_DIR="${BACKUP_DIR:-$ROOT_DIR/backups/postgres}"
 mkdir -p "$BACKUP_DIR"
 
-set -a
-source "$ROOT_DIR/.env"
-set +a
+dotenv_value() {
+  sed -n "s/^$1=//p" "$ROOT_DIR/.env" | tail -n 1
+}
+POSTGRES_USER="${POSTGRES_USER:-$(dotenv_value POSTGRES_USER)}"
+POSTGRES_DB="${POSTGRES_DB:-$(dotenv_value POSTGRES_DB)}"
+: "${POSTGRES_USER:?POSTGRES_USER is required}"
+: "${POSTGRES_DB:?POSTGRES_DB is required}"
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 docker compose -f "$ROOT_DIR/compose.yaml" -f "$ROOT_DIR/compose.prod.yaml" \

@@ -4,6 +4,7 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 
 import httpx
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -51,18 +52,18 @@ class NominatimGeocoder:
             if south <= float(item["lat"]) <= north and west <= float(item["lon"]) <= east
         ]
         serialized = [candidate.model_dump(mode="json") for candidate in candidates]
-        if cached:
-            cached.response = serialized
-            cached.expires_at = now + timedelta(days=settings.geocoder_cache_days)
-        else:
-            session.add(
-                GeocodeCache(
-                    cache_key=cache_key,
-                    query=query,
-                    response=serialized,
-                    created_at=now,
-                    expires_at=now + timedelta(days=settings.geocoder_cache_days),
-                )
-            )
+        expires_at = now + timedelta(days=settings.geocoder_cache_days)
+        statement = insert(GeocodeCache).values(
+            cache_key=cache_key,
+            query=query,
+            response=serialized,
+            created_at=now,
+            expires_at=expires_at,
+        )
+        statement = statement.on_conflict_do_update(
+            index_elements=[GeocodeCache.cache_key],
+            set_={"query": query, "response": serialized, "expires_at": expires_at},
+        )
+        await session.execute(statement)
         await session.commit()
         return candidates

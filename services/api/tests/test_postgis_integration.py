@@ -1,9 +1,12 @@
+import asyncio
 import os
 
+import httpx
 import pytest
 from sqlalchemy import text
 
 from app.db.session import SessionLocal
+from app.integrations.geocoder import NominatimGeocoder
 from app.services.parking import recommendations
 
 
@@ -50,3 +53,44 @@ async def test_recommendations_query_maps_import_timestamp() -> None:
 
     assert result.items[0].street_name == "Calle de prueba"
     assert result.items[0].imported_at is not None
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(not os.getenv("RUN_POSTGIS_TESTS"), reason="RUN_POSTGIS_TESTS no definido")
+@pytest.mark.asyncio
+async def test_concurrent_geocode_cache_writes_are_idempotent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, *_args, **_kwargs):
+            return httpx.Response(
+                200,
+                request=httpx.Request("GET", "http://nominatim/search"),
+                json=[
+                    {
+                        "display_name": "Plaça de l'Ajuntament, València",
+                        "lat": "39.4706473",
+                        "lon": "-0.3768264",
+                        "type": "square",
+                        "importance": 0.1,
+                    }
+                ],
+            )
+
+    monkeypatch.setattr(
+        "app.integrations.geocoder.httpx.AsyncClient", lambda **_kwargs: FakeClient()
+    )
+    query = "E2E concurrent cache write"
+    async with SessionLocal() as first, SessionLocal() as second:
+        results = await asyncio.gather(
+            NominatimGeocoder().search(first, query, 2),
+            NominatimGeocoder().search(second, query, 2),
+        )
+
+    assert len(results[0]) == len(results[1]) == 1

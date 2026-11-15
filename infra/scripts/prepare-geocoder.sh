@@ -7,7 +7,7 @@ mkdir -p "$OSM_DIR"
 
 REGION_PBF="$OSM_DIR/valencia-community-latest.osm.pbf"
 VALENCIA_PBF="$OSM_DIR/valencia.osm.pbf"
-curl --fail --location --continue-at - \
+curl --fail --location \
   https://download.geofabrik.de/europe/spain/valencia-latest.osm.pbf \
   --output "$REGION_PBF"
 

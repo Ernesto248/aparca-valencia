@@ -2,7 +2,7 @@ FROM python:3.12-slim-bookworm
 
 ARG NOMINATIM_VERSION=5.3.3
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl libicu-dev libpq-dev osm2pgsql osmium-tool postgresql-client \
+    build-essential curl libicu-dev libpq-dev osm2pgsql osmium-tool pkg-config postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir \
        "nominatim-db==${NOMINATIM_VERSION}" \

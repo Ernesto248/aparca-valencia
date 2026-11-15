@@ -10,7 +10,12 @@ until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"; do
   sleep 2
 done
 
-if [ "$(psql -tAc "SELECT to_regclass('public.placex') IS NOT NULL")" != "t" ]; then
+HAS_PLACEX="$(psql -tAc "SELECT to_regclass('public.placex') IS NOT NULL" 2>/dev/null || true)"
+if [ "$HAS_PLACEX" != "t" ]; then
+  if PGDATABASE=postgres psql -tAc \
+    "SELECT 1 FROM pg_database WHERE datname = '${PGDATABASE}'" | grep -q 1; then
+    PGDATABASE=postgres dropdb --force "$PGDATABASE"
+  fi
   nominatim import --project-dir /srv/nominatim-project \
     --osm-file "${OSM_FILE:-/data/valencia.osm.pbf}" --no-updates
 fi

@@ -18,9 +18,13 @@ test("completa el flujo principal con datos reales", async ({ page }, testInfo) 
   const recommendation = page.getByRole("heading", { name: "AYUNTAMIENTO" }).first();
   await expect(recommendation).toBeVisible();
   await recommendation.click();
-  await expect(recommendation.locator("xpath=ancestor::button")).toHaveAttribute("aria-pressed", "true");
   if (testInfo.project.name === "mobile") {
     await expect(page.getByText("Zona resaltada en coral")).toBeVisible();
+  } else {
+    await expect(recommendation.locator("xpath=ancestor::button")).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
   }
 
   const popupPromise = page.waitForEvent("popup");

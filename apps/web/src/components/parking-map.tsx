@@ -36,6 +36,40 @@ function withIds(collection: FeatureCollection): GeoJSONFeatureCollection {
   } as GeoJSONFeatureCollection;
 }
 
+function selectedZoneData(
+  zones: FeatureCollection,
+  selectedId: string | null
+): GeoJSONFeatureCollection {
+  if (!selectedId) return withIds(EMPTY);
+  const selected = zones.features.find((feature) => feature.id === selectedId);
+  return withIds({
+    type: "FeatureCollection",
+    features: selected ? [selected] : [],
+    meta: {}
+  });
+}
+
+function selectedZoneAnchor(
+  zones: FeatureCollection,
+  selectedId: string | null
+): GeoJSONFeatureCollection {
+  if (!selectedId) return withIds(EMPTY);
+  const selected = zones.features.find((feature) => feature.id === selectedId);
+  const bounds = selected ? geometryBounds(selected.geometry) : null;
+  if (!bounds) return withIds(EMPTY);
+  const center = bounds.getCenter();
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [center.lng, center.lat] },
+        properties: { id: selectedId }
+      }
+    ]
+  };
+}
+
 function geometryBounds(geometry: Geometry): maplibregl.LngLatBounds | null {
   const bounds = new maplibregl.LngLatBounds();
 
@@ -149,6 +183,14 @@ export default function ParkingMap({
     map.on("load", () => {
       const current = dataRef.current;
       map.addSource("zones", { type: "geojson", data: withIds(current.zones) });
+      map.addSource("selected-zone", {
+        type: "geojson",
+        data: selectedZoneData(current.zones, current.selectedId)
+      });
+      map.addSource("selected-zone-anchor", {
+        type: "geojson",
+        data: selectedZoneAnchor(current.zones, current.selectedId)
+      });
       map.addLayer({
         id: "zones-shadow",
         type: "line",
@@ -164,16 +206,25 @@ export default function ParkingMap({
       map.addLayer({
         id: "zone-selected-shadow",
         type: "line",
-        source: "zones",
-        filter: ["==", ["get", "id"], current.selectedId ?? ""],
+        source: "selected-zone",
         paint: { "line-color": "#ffffff", "line-width": 13, "line-opacity": 0.96 }
       });
       map.addLayer({
         id: "zone-selected",
         type: "line",
-        source: "zones",
-        filter: ["==", ["get", "id"], current.selectedId ?? ""],
+        source: "selected-zone",
         paint: { "line-color": "#e86f51", "line-width": 8, "line-opacity": 1 }
+      });
+      map.addLayer({
+        id: "zone-selected-anchor",
+        type: "circle",
+        source: "selected-zone-anchor",
+        paint: {
+          "circle-radius": 8,
+          "circle-color": "#e86f51",
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 4
+        }
       });
       map.addSource("raw-features", { type: "geojson", data: withIds(current.rawFeatures) });
       map.addLayer({
@@ -223,7 +274,7 @@ export default function ParkingMap({
         callbacksRef.current.onManualSelect(event.lngLat.lng, event.lngLat.lat);
         return;
       }
-      const features = map.queryRenderedFeatures(event.point, { layers: ["zones", "zone-selected"] });
+      const features = map.queryRenderedFeatures(event.point, { layers: ["zone-selected", "zones"] });
       const id = features[0]?.properties?.id as string | undefined;
       if (id) callbacksRef.current.onZoneSelect(id);
     });
@@ -272,10 +323,13 @@ export default function ParkingMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.getLayer("zone-selected") || !map.getLayer("zone-selected-shadow")) return;
-    const filter: maplibregl.FilterSpecification = ["==", ["get", "id"], selectedId ?? ""];
-    map.setFilter("zone-selected", filter);
-    map.setFilter("zone-selected-shadow", filter);
+    if (!map?.getLayer("zone-selected")) return;
+    (map.getSource("selected-zone") as GeoJSONSource | undefined)?.setData(
+      selectedZoneData(zones, selectedId)
+    );
+    (map.getSource("selected-zone-anchor") as GeoJSONSource | undefined)?.setData(
+      selectedZoneAnchor(zones, selectedId)
+    );
     if (selectedId) focusZone(map, zones, selectedId);
   }, [selectedId, zones]);
 

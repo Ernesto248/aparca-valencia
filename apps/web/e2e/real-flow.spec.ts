@@ -3,6 +3,10 @@ import { expect, test } from "@playwright/test";
 test.skip(process.env.REAL_E2E !== "1", "Se ejecuta únicamente contra una beta desplegada");
 
 test("completa el flujo principal con datos reales", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
   await page.goto("/");
   await page.getByLabel("Destino en València").fill("Plaça de l'Ajuntament");
   await page.getByRole("button", { name: "Buscar destino" }).click();
@@ -21,4 +25,5 @@ test("completa el flujo principal con datos reales", async ({ page }) => {
   const popup = await popupPromise;
   await popup.waitForLoadState("domcontentloaded");
   await expect(popup).toHaveURL(/google\.com\/maps\/dir/);
+  expect(consoleErrors.filter((message) => message.includes("Worker failed to load"))).toEqual([]);
 });

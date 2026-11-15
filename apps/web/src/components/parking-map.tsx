@@ -8,6 +8,10 @@ import { useEffect, useRef } from "react";
 import type { FeatureCollection as GeoJSONFeatureCollection } from "geojson";
 import type { Destination, FeatureCollection } from "@/lib/types";
 
+maplibregl.setWorkerUrl(
+  new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).toString()
+);
+
 const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [], meta: {} };
 let protocolRegistered = false;
 
@@ -65,7 +69,10 @@ export default function ParkingMap({
   const manualModeRef = useRef(manualMode);
   const callbacksRef = useRef({ onManualSelect, onZoneSelect, onDetailViewport });
   const dataRef = useRef({ destination, zones, rawFeatures, selectedId });
-  dataRef.current = { destination, zones, rawFeatures, selectedId };
+
+  useEffect(() => {
+    dataRef.current = { destination, zones, rawFeatures, selectedId };
+  }, [destination, zones, rawFeatures, selectedId]);
 
   useEffect(() => {
     manualModeRef.current = manualMode;

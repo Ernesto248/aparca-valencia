@@ -1,0 +1,28 @@
+services:
+  api:
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+      - traefik.http.routers.aparca-api.rule=Host(`${PUBLIC_HOST}`) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || Path(`/openapi.json`))
+      - traefik.http.routers.aparca-api.entrypoints=websecure
+      - traefik.http.routers.aparca-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER}
+      - traefik.http.services.aparca-api.loadbalancer.server.port=8000
+    networks:
+      - internal
+      - proxy
+  map-assets:
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+      - traefik.http.routers.aparca-maps.rule=Host(`${PUBLIC_HOST}`) && PathPrefix(`/maps`)
+      - traefik.http.routers.aparca-maps.entrypoints=websecure
+      - traefik.http.routers.aparca-maps.tls.certresolver=${TRAEFIK_CERT_RESOLVER}
+      - traefik.http.services.aparca-maps.loadbalancer.server.port=80
+    networks:
+      - internal
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK}

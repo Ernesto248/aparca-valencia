@@ -1,0 +1,33 @@
+# Dependencies and builds
+node_modules/
+.next/
+coverage/
+test-results/
+playwright-report/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+.venv/
+.python-version
+.vercel/
+
+# Runtime data
+data/
+backups/
+*.pmtiles
+*.osm.pbf
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

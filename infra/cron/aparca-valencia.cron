@@ -1,0 +1,10 @@
+SHELL=/bin/bash
+TZ=Europe/Madrid
+
+# Datos municipales diarios
+15 2 * * * cd /opt/aparca-valencia && docker compose -f compose.yaml -f compose.prod.yaml run --rm api python -m app.cli sync-unregulated >> /var/log/aparca-sync.log 2>&1
+
+# Copia PostgreSQL diaria
+45 2 * * * /opt/aparca-valencia/infra/scripts/backup-postgres.sh >> /var/log/aparca-backup.log 2>&1
+
+# Los assets OSM se reconstruyen manualmente el primer domingo de mes tras revisar espacio y carga.

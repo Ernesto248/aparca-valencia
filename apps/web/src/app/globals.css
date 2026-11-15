@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+:root {
+  --petrol: #10373e;
+  --petrol-strong: #08272d;
+  --petrol-soft: #dcebee;
+  --coral: #e86f51;
+  --coral-strong: #cf573b;
+  --sand: #f6f2e9;
+  --ink: #11292d;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--sand);
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+}
+button, input { font: inherit; }
+a { color: inherit; }
+
+.maplibregl-ctrl-attrib {
+  border-radius: 8px 0 0 0;
+  font-family: inherit;
+  font-size: 10px;
+}
+
+.maplibregl-ctrl-group {
+  overflow: hidden;
+  border: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgb(16 55 62 / 14%) !important;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-rise { animation: rise .35s ease-out both; }

@@ -1,0 +1,104 @@
+name: aparca-valencia
+
+services:
+  db:
+    image: postgis/postgis:17-3.5-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aparca}
+      POSTGRES_USER: ${POSTGRES_USER:-aparca}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init-nominatim.sh:/docker-entrypoint-initdb.d/20-init-nominatim.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aparca} -d ${POSTGRES_DB:-aparca}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+    networks: [internal]
+
+  api:
+    build:
+      context: ./services/api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-aparca}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-aparca}
+      NOMINATIM_URL: http://nominatim:8080
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    networks: [internal]
+
+  nominatim:
+    profiles: ["geocoder"]
+    build:
+      context: ./infra/nominatim
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: nominatim
+      PGUSER: ${POSTGRES_USER:-aparca}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      NOMINATIM_DATABASE_DSN: pgsql:dbname=nominatim;host=db;port=5432;user=${POSTGRES_USER:-aparca};password=${POSTGRES_PASSWORD}
+      NOMINATIM_DATABASE_WEBUSER: ${POSTGRES_USER:-aparca}
+      NOMINATIM_IMPORT_STYLE: address
+      NOMINATIM_API_POOL_SIZE: 2
+      NOMINATIM_OSM2PGSQL_CACHE: 2048
+      OSM_FILE: /data/valencia.osm.pbf
+    volumes:
+      - ./data/osm:/data:ro
+      - nominatim-project:/srv/nominatim-project
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+    networks: [internal]
+
+  map-assets:
+    image: nginx:1.29-alpine
+    restart: unless-stopped
+    volumes:
+      - ./infra/nginx/maps.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./data/maps:/usr/share/nginx/html/maps:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+    networks: [internal]
+
+volumes:
+  postgres-data:
+  nominatim-project:
+
+networks:
+  internal:
+    driver: bridge

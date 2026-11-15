@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+      - uses: actions/setup-node@1e60f620b9541d9b73e0a1a4ac2b2377d8a7b2ac
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: https://example.invalid
+          NEXT_PUBLIC_PM_TILES_URL: https://example.invalid/maps/valencia.pmtiles
+          NEXT_PUBLIC_MAP_ASSETS_URL: https://example.invalid/maps
+
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: aparca
+          POSTGRES_USER: aparca
+          POSTGRES_PASSWORD: test-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U aparca -d aparca"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://aparca:test-password@localhost:5432/aparca
+      RUN_POSTGIS_TESTS: "1"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.9.18"
+          python-version: "3.12"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+      - uses: actions/setup-node@1e60f620b9541d9b73e0a1a4ac2b2377d8a7b2ac
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: services/api
+        run: uv sync --dev
+      - working-directory: services/api
+        run: uv run ruff check .
+      - working-directory: services/api
+        run: uv run ruff format --check .
+      - working-directory: services/api
+        run: uv run alembic upgrade head
+      - working-directory: services/api
+        run: uv run pytest --cov=app --cov-report=term-missing
+      - name: Verify generated OpenAPI types
+        shell: bash
+        run: |
+          cd services/api
+          uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          api_pid=$!
+          trap 'kill "$api_pid"' EXIT
+          for attempt in {1..20}; do
+            curl --fail --silent http://127.0.0.1:8000/openapi.json >/dev/null && break
+            sleep 1
+          done
+          cd ../..
+          pnpm --filter @aparca/web openapi:generate
+          git diff --exit-code -- apps/web/src/lib/api.generated.ts

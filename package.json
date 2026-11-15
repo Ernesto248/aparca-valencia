@@ -1,0 +1,21 @@
+{
+  "name": "aparca-valencia",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.4.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @aparca/web dev",
+    "build": "pnpm --filter @aparca/web build",
+    "lint": "pnpm --filter @aparca/web lint",
+    "typecheck": "pnpm --filter @aparca/web typecheck",
+    "test": "pnpm --filter @aparca/web test",
+    "test:e2e": "pnpm --filter @aparca/web test:e2e",
+    "api:test": "docker compose run --rm api pytest",
+    "api:lint": "docker compose run --rm api ruff check .",
+    "openapi:generate": "pnpm --filter @aparca/web openapi:generate",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  }
+}

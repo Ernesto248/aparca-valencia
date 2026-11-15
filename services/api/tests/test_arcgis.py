@@ -1,4 +1,5 @@
 import json
+from urllib.parse import parse_qs
 
 import httpx
 import pytest
@@ -23,7 +24,9 @@ async def test_metadata_and_oid_pagination() -> None:
             )
         if request.url.params.get("returnIdsOnly") == "true":
             return httpx.Response(200, json={"objectIds": [3, 1, 2]})
-        ids = [int(value) for value in request.url.params["objectIds"].split(",")]
+        assert request.method == "POST"
+        form = parse_qs(request.content.decode())
+        ids = [int(value) for value in form["objectIds"][0].split(",")]
         return httpx.Response(
             200,
             json={

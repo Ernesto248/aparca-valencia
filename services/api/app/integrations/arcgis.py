@@ -33,11 +33,21 @@ class ArcGISClient:
         if self._owns_client:
             await self.client.aclose()
 
-    async def _get_json(self, url: str, params: dict[str, Any]) -> dict[str, Any]:
+    async def _request_json(
+        self,
+        method: str,
+        url: str,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
         last_error: Exception | None = None
         for attempt in range(self.retries):
             try:
-                response = await self.client.get(url, params=params)
+                response = await self.client.request(
+                    method,
+                    url,
+                    params=params if method == "GET" else None,
+                    data=params if method == "POST" else None,
+                )
                 response.raise_for_status()
                 payload = json.loads(response.content)
                 if "error" in payload:
@@ -48,6 +58,9 @@ class ArcGISClient:
                 if attempt + 1 < self.retries:
                     await asyncio.sleep(0.5 * (2**attempt))
         raise ArcGISError(f"ArcGIS no respondió correctamente: {last_error}")
+
+    async def _get_json(self, url: str, params: dict[str, Any]) -> dict[str, Any]:
+        return await self._request_json("GET", url, params)
 
     async def metadata(self, layer_id: int) -> dict[str, Any]:
         metadata = await self._get_json(f"{self.base_url}/{layer_id}", {"f": "pjson"})
@@ -76,7 +89,8 @@ class ArcGISClient:
         *,
         out_fields: str = "*",
     ) -> dict[str, Any]:
-        payload = await self._get_json(
+        payload = await self._request_json(
+            "POST",
             f"{self.base_url}/{layer_id}/query",
             {
                 "objectIds": ",".join(str(item) for item in object_ids),

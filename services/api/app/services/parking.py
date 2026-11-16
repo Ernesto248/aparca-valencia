@@ -17,6 +17,7 @@ from app.schemas import (
     SegmentDetail,
 )
 from app.services.importer import SOURCE
+from app.services.regulated_importer import probability_level
 
 
 async def nearby_zones(
@@ -113,6 +114,88 @@ async def raw_features(
     return GeoJSONFeatureCollection(
         features=features,
         meta={"count": len(features), "limit": limit, "truncated": len(features) == limit},
+    )
+
+
+async def regulated_predictions(
+    session: AsyncSession,
+    latitude: float,
+    longitude: float,
+    radius_meters: int,
+    horizon_hours: int,
+    limit: int,
+) -> GeoJSONFeatureCollection:
+    if not settings.enable_regulated_predictions:
+        return GeoJSONFeatureCollection(
+            features=[],
+            meta={
+                "count": 0,
+                "horizon_hours": horizon_hours,
+                "available": False,
+                "warning": "La predicción municipal todavía no está habilitada.",
+            },
+        )
+    rows = (
+        await session.execute(
+            text(
+                """
+                WITH destination AS (
+                    SELECT ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326) AS geom
+                )
+                SELECT p.id, p.source_id, p.segment_id, p.street_name,
+                       p.horizon_hours, p.occupancy_percent, p.imported_at,
+                       ST_AsGeoJSON(p.geom)::json AS geometry,
+                       ST_Y(ST_Centroid(p.geom)) AS latitude,
+                       ST_X(ST_Centroid(p.geom)) AS longitude,
+                       ST_Distance(p.geom::geography, d.geom::geography) AS distance_meters
+                FROM regulated_parking_predictions p CROSS JOIN destination d
+                WHERE p.horizon_hours = :horizon
+                  AND ST_DWithin(p.geom::geography, d.geom::geography, :radius)
+                ORDER BY p.occupancy_percent ASC, distance_meters ASC, p.id ASC
+                LIMIT :limit
+                """
+            ),
+            {
+                "latitude": latitude,
+                "longitude": longitude,
+                "radius": radius_meters,
+                "horizon": horizon_hours,
+                "limit": limit,
+            },
+        )
+    ).mappings()
+    features = [
+        GeoJSONFeature(
+            id=str(row["id"]),
+            geometry=row["geometry"]
+            if isinstance(row["geometry"], dict)
+            else json.loads(row["geometry"]),
+            properties={
+                "source_id": row["source_id"],
+                "segment_id": row["segment_id"],
+                "street_name": row["street_name"] or "Calle sin nombre",
+                "parking_type": "regulated",
+                "occupancy_percent": row["occupancy_percent"],
+                "probability_level": probability_level(row["occupancy_percent"]),
+                "horizon_hours": row["horizon_hours"],
+                "distance_meters": round(row["distance_meters"], 1),
+                "latitude": row["latitude"],
+                "longitude": row["longitude"],
+                "imported_at": row["imported_at"].isoformat(),
+                "source": "Ayuntamiento de València",
+            },
+        )
+        for row in rows
+    ]
+    return GeoJSONFeatureCollection(
+        features=features,
+        meta={
+            "count": len(features),
+            "horizon_hours": horizon_hours,
+            "available": True,
+            "ranking": "predicted_occupancy_then_distance",
+            "probability_thresholds": {"high": "<60%", "medium": "60-80%", "low": ">80%"},
+        },
     )
 
 

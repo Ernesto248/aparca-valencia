@@ -21,6 +21,7 @@ from app.services.parking import (
     nearby_zones,
     raw_features,
     recommendations,
+    regulated_predictions,
     segment_detail,
     source_status,
 )
@@ -88,6 +89,22 @@ async def parking_recommendations(
     session: AsyncSession = Depends(get_session),
 ) -> RecommendationResponse:
     return await recommendations(session, latitude, longitude, radius_meters, limit)
+
+
+@router.get("/parking/predictions", response_model=GeoJSONFeatureCollection, tags=["parking"])
+async def parking_predictions(
+    latitude: float = Query(ge=-90, le=90),
+    longitude: float = Query(ge=-180, le=180),
+    radius_meters: int = Query(default=500, ge=100, le=2000),
+    horizon_hours: int = Query(default=1, ge=1, le=24),
+    limit: int = Query(default=50, ge=1, le=250),
+    session: AsyncSession = Depends(get_session),
+) -> GeoJSONFeatureCollection:
+    if horizon_hours not in (1, 6, 12, 24):
+        raise HTTPException(status_code=422, detail="horizon_hours debe ser 1, 6, 12 o 24")
+    return await regulated_predictions(
+        session, latitude, longitude, radius_meters, horizon_hours, limit
+    )
 
 
 @router.get("/parking/segments/{segment_id}", response_model=SegmentDetail, tags=["parking"])

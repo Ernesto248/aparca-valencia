@@ -12,12 +12,17 @@ export default function SourcesPage() {
           <p className="mt-2">Datos: <a className="underline" href="https://opendata.vlci.valencia.es/es/dataset/aparcaments-no-regulats-aparcamientos-no-regulados" rel="noreferrer" target="_blank">Ajuntament de València</a>, licencia <a className="underline" href="https://creativecommons.org/licenses/by/4.0/deed.es" rel="noreferrer" target="_blank">CC BY 4.0</a>.</p>
         </section>
         <section>
+          <h2 className="text-xl font-extrabold text-[var(--ink)]">Predicción de aparcamiento regulado</h2>
+          <p className="mt-2">Las capas municipales 254, 253, 252 y 4 publican ocupación prevista para tramos regulados a 1, 6, 12 y 24 horas. La aplicación conserva la clasificación oficial: menos de 60% de ocupación es probabilidad alta de estacionamiento; entre 60% y 80%, media; y por encima de 80%, baja.</p>
+          <p className="mt-2">Es una predicción, no una garantía de plaza, y no se extrapola a las zonas no reguladas.</p>
+        </section>
+        <section>
           <h2 className="text-xl font-extrabold text-[var(--ink)]">Mapa base y búsqueda</h2>
           <p className="mt-2">El mapa y el índice de direcciones se generan a partir de OpenStreetMap. Las teselas se empaquetan con Protomaps/PMTiles y se sirven desde nuestra infraestructura. © colaboradores de OpenStreetMap, bajo ODbL.</p>
         </section>
         <section>
           <h2 className="text-xl font-extrabold text-[var(--ink)]">Metodología</h2>
-          <p className="mt-2">Las recomendaciones combinan cercanía al destino y cantidad de geometrías municipales agrupadas. La puntuación es relativa, experimental y no es una probabilidad de encontrar plaza.</p>
+          <p className="mt-2">Los tramos se ordenan primero por menor ocupación municipal prevista y después por distancia. Las zonas no reguladas permanecen visibles como inventario, pero no reciben una probabilidad.</p>
         </section>
       </div>
     </main>

@@ -5,9 +5,10 @@ import httpx
 import pytest
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.db.session import SessionLocal
 from app.integrations.geocoder import NominatimGeocoder
-from app.services.parking import recommendations
+from app.services.parking import recommendations, regulated_predictions
 
 
 @pytest.mark.integration
@@ -94,3 +95,37 @@ async def test_concurrent_geocode_cache_writes_are_idempotent(
         )
 
     assert len(results[0]) == len(results[1]) == 1
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(not os.getenv("RUN_POSTGIS_TESTS"), reason="RUN_POSTGIS_TESTS no definido")
+@pytest.mark.asyncio
+async def test_regulated_predictions_are_ranked_by_occupancy_before_distance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "enable_regulated_predictions", True)
+    async with SessionLocal() as session:
+        await session.execute(
+            text(
+                """
+                INSERT INTO regulated_parking_predictions
+                    (id, source_id, segment_id, street_name, horizon_hours,
+                     occupancy_percent, geom, imported_at)
+                VALUES
+                    ('10000000-0000-0000-0000-000000000001', 'far-free', '1',
+                     'Calle con más opciones', 1, 30,
+                     ST_GeomFromText('LINESTRING(-0.3770 39.4699, -0.3769 39.4700)', 4326),
+                     now()),
+                    ('10000000-0000-0000-0000-000000000002', 'near-busy', '2',
+                     'Calle casi llena', 1, 90,
+                     ST_GeomFromText('LINESTRING(-0.3763 39.4699, -0.3762 39.4700)', 4326),
+                     now())
+                """
+            )
+        )
+        result = await regulated_predictions(session, 39.4699, -0.3763, 500, 1, 10)
+        await session.rollback()
+
+    assert [item.properties["occupancy_percent"] for item in result.features] == [30, 90]
+    assert result.features[0].properties["probability_level"] == "high"
+    assert result.features[1].properties["probability_level"] == "low"

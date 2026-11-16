@@ -12,14 +12,14 @@
 - [x] Implementar importación ArcGIS por OID con reintentos, validación y staging transaccional.
 - [x] Implementar agrupación espacial y motor heurístico determinista.
 - [x] Publicar API v1, Problem Details y OpenAPI.
-- [x] Añadir adaptador regulado detrás de feature flag.
+- [x] Importar y publicar la predicción regulada municipal a 1/6/12/24 horas.
 - [x] Ejecutar migraciones y pruebas sobre PostGIS real en CI y en el VPS.
 - [x] Conciliar 282.248 registros municipales, sin rechazos, y derivar 6.970 zonas.
 
 ## Frontend
 
 - [x] Implementar mapa MapLibre/PMTiles, búsqueda, selección manual y ubicación actual.
-- [x] Implementar recomendaciones, detalle, estados de carga/error/sin cobertura y responsive.
+- [x] Priorizar ocupación prevista, dejar distancia como desempate y separar zonas sin predicción.
 - [x] Añadir aviso, atribuciones, privacidad, noindex y Vercel Analytics.
 - [x] Generar tipos TypeScript desde OpenAPI.
 - [x] Validar visualmente móvil, tablet y escritorio con la cartografía publicada.

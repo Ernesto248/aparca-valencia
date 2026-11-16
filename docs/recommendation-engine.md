@@ -1,4 +1,10 @@
-# Motor de recomendaciones
+# Orden de resultados
+
+La experiencia principal utiliza la predicción municipal de aparcamiento regulado. Ordena por menor porcentaje de ocupación prevista y usa la distancia únicamente como desempate. La interfaz muestra la clasificación oficial alta/media/baja, el porcentaje de ocupación y el horizonte temporal.
+
+No convierte el margen libre en una probabilidad numérica ni aplica la predicción a calles no reguladas.
+
+## Ranking histórico sin predicción
 
 `heuristic_v0` ordena zonas, pero no predice ocupación.
 
@@ -15,4 +21,4 @@ La puntuación no se muestra como porcentaje. Todas las respuestas incluyen:
 - `confidence: unvalidated`
 - explicación basada en distancia y evidencia municipal
 
-Una futura predicción histórica deberá implementar otra estrategia y aportar versión del modelo, fecha, variables, calibración e incertidumbre. Nunca sustituirá silenciosamente al ranking por reglas.
+Este ranking se conserva en la API por compatibilidad, pero ya no alimenta la lista principal de la interfaz.

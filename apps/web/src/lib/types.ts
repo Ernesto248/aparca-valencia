@@ -28,6 +28,20 @@ export type FeatureCollection = {
   meta: Record<string, unknown>;
 };
 
+export type ProbabilityLevel = "high" | "medium" | "low";
+
+export type ParkingPrediction = {
+  id: string;
+  streetName: string;
+  latitude: number;
+  longitude: number;
+  distanceMeters: number;
+  occupancyPercent: number;
+  probabilityLevel: ProbabilityLevel;
+  horizonHours: 1 | 6 | 12 | 24;
+  importedAt: string;
+};
+
 export type Recommendation = {
   id: string;
   street_name: string;

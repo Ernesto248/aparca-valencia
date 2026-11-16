@@ -15,11 +15,11 @@ test("completa el flujo principal con datos reales", async ({ page }, testInfo) 
   await expect(candidate).toBeVisible();
   await candidate.click();
 
-  const recommendation = page.getByRole("heading", { name: "AYUNTAMIENTO" }).first();
+  const recommendation = page.locator("h3").first();
   await expect(recommendation).toBeVisible();
   await recommendation.click();
   if (testInfo.project.name === "mobile") {
-    await expect(page.getByText("Zona resaltada en coral")).toBeVisible();
+    await expect(page.getByText("Tramo previsto resaltado")).toBeVisible();
   } else {
     await expect(recommendation.locator("xpath=ancestor::button")).toHaveAttribute(
       "aria-pressed",

@@ -18,6 +18,7 @@ let protocolRegistered = false;
 type Props = {
   destination: Destination | null;
   zones?: FeatureCollection;
+  predictions?: FeatureCollection;
   rawFeatures?: FeatureCollection;
   selectedId: string | null;
   manualMode: boolean;
@@ -38,10 +39,13 @@ function withIds(collection: FeatureCollection): GeoJSONFeatureCollection {
 
 function selectedZoneData(
   zones: FeatureCollection,
+  predictions: FeatureCollection,
   selectedId: string | null
 ): GeoJSONFeatureCollection {
   if (!selectedId) return withIds(EMPTY);
-  const selected = zones.features.find((feature) => feature.id === selectedId);
+  const selected =
+    predictions.features.find((feature) => feature.id === selectedId) ??
+    zones.features.find((feature) => feature.id === selectedId);
   return withIds({
     type: "FeatureCollection",
     features: selected ? [selected] : [],
@@ -51,10 +55,13 @@ function selectedZoneData(
 
 function selectedZoneAnchor(
   zones: FeatureCollection,
+  predictions: FeatureCollection,
   selectedId: string | null
 ): GeoJSONFeatureCollection {
   if (!selectedId) return withIds(EMPTY);
-  const selected = zones.features.find((feature) => feature.id === selectedId);
+  const selected =
+    predictions.features.find((feature) => feature.id === selectedId) ??
+    zones.features.find((feature) => feature.id === selectedId);
   const bounds = selected ? geometryBounds(selected.geometry) : null;
   if (!bounds) return withIds(EMPTY);
   const center = bounds.getCenter();
@@ -101,8 +108,15 @@ function geometryBounds(geometry: Geometry): maplibregl.LngLatBounds | null {
   return bounds.isEmpty() ? null : bounds;
 }
 
-function focusZone(map: MapLibreMap, zones: FeatureCollection, selectedId: string) {
-  const feature = zones.features.find((item) => item.id === selectedId);
+function focusZone(
+  map: MapLibreMap,
+  zones: FeatureCollection,
+  predictions: FeatureCollection,
+  selectedId: string
+) {
+  const feature =
+    predictions.features.find((item) => item.id === selectedId) ??
+    zones.features.find((item) => item.id === selectedId);
   if (!feature) return;
   const bounds = geometryBounds(feature.geometry);
   if (!bounds) return;
@@ -139,6 +153,7 @@ function createStyle(): StyleSpecification {
 export default function ParkingMap({
   destination,
   zones = EMPTY,
+  predictions = EMPTY,
   rawFeatures = EMPTY,
   selectedId,
   manualMode,
@@ -150,11 +165,11 @@ export default function ParkingMap({
   const mapRef = useRef<MapLibreMap | null>(null);
   const manualModeRef = useRef(manualMode);
   const callbacksRef = useRef({ onManualSelect, onZoneSelect, onDetailViewport });
-  const dataRef = useRef({ destination, zones, rawFeatures, selectedId });
+  const dataRef = useRef({ destination, zones, predictions, rawFeatures, selectedId });
 
   useEffect(() => {
-    dataRef.current = { destination, zones, rawFeatures, selectedId };
-  }, [destination, zones, rawFeatures, selectedId]);
+    dataRef.current = { destination, zones, predictions, rawFeatures, selectedId };
+  }, [destination, zones, predictions, rawFeatures, selectedId]);
 
   useEffect(() => {
     manualModeRef.current = manualMode;
@@ -185,23 +200,36 @@ export default function ParkingMap({
       map.addSource("zones", { type: "geojson", data: withIds(current.zones) });
       map.addSource("selected-zone", {
         type: "geojson",
-        data: selectedZoneData(current.zones, current.selectedId)
+        data: selectedZoneData(current.zones, current.predictions, current.selectedId)
       });
       map.addSource("selected-zone-anchor", {
         type: "geojson",
-        data: selectedZoneAnchor(current.zones, current.selectedId)
+        data: selectedZoneAnchor(current.zones, current.predictions, current.selectedId)
       });
       map.addLayer({
         id: "zones-shadow",
         type: "line",
         source: "zones",
-        paint: { "line-color": "#ffffff", "line-width": 8, "line-opacity": 0.8 }
+        paint: { "line-color": "#ffffff", "line-width": 6, "line-opacity": 0.65 }
       });
       map.addLayer({
         id: "zones",
         type: "line",
         source: "zones",
-        paint: { "line-color": "#167085", "line-width": 4, "line-opacity": 0.88 }
+        paint: { "line-color": "#82979b", "line-width": 2.5, "line-opacity": 0.55 }
+      });
+      map.addSource("predictions", { type: "geojson", data: withIds(current.predictions) });
+      map.addLayer({
+        id: "predictions-shadow",
+        type: "line",
+        source: "predictions",
+        paint: { "line-color": "#ffffff", "line-width": 10, "line-opacity": 0.9 }
+      });
+      map.addLayer({
+        id: "predictions",
+        type: "line",
+        source: "predictions",
+        paint: { "line-color": "#10373e", "line-width": 6, "line-opacity": 0.95 }
       });
       map.addLayer({
         id: "zone-selected-shadow",
@@ -260,7 +288,9 @@ export default function ParkingMap({
           essential: true
         });
       }
-      if (current.selectedId) focusZone(map, current.zones, current.selectedId);
+      if (current.selectedId) {
+        focusZone(map, current.zones, current.predictions, current.selectedId);
+      }
       map.addLayer({
         id: "destination",
         type: "circle",
@@ -274,13 +304,15 @@ export default function ParkingMap({
         callbacksRef.current.onManualSelect(event.lngLat.lng, event.lngLat.lat);
         return;
       }
-      const features = map.queryRenderedFeatures(event.point, { layers: ["zone-selected", "zones"] });
+      const features = map.queryRenderedFeatures(event.point, {
+        layers: ["zone-selected", "predictions"]
+      });
       const id = features[0]?.properties?.id as string | undefined;
       if (id) callbacksRef.current.onZoneSelect(id);
     });
 
-    map.on("mouseenter", "zones", () => { map.getCanvas().style.cursor = "pointer"; });
-    map.on("mouseleave", "zones", () => { map.getCanvas().style.cursor = ""; });
+    map.on("mouseenter", "predictions", () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "predictions", () => { map.getCanvas().style.cursor = ""; });
     const reportViewport = () => {
       if (map.getZoom() < 16) {
         callbacksRef.current.onDetailViewport(null);
@@ -318,6 +350,12 @@ export default function ParkingMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map?.isStyleLoaded()) return;
+    (map.getSource("predictions") as GeoJSONSource | undefined)?.setData(withIds(predictions));
+  }, [predictions]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.isStyleLoaded()) return;
     (map.getSource("raw-features") as GeoJSONSource | undefined)?.setData(withIds(rawFeatures));
   }, [rawFeatures]);
 
@@ -325,19 +363,19 @@ export default function ParkingMap({
     const map = mapRef.current;
     if (!map?.getLayer("zone-selected")) return;
     (map.getSource("selected-zone") as GeoJSONSource | undefined)?.setData(
-      selectedZoneData(zones, selectedId)
+      selectedZoneData(zones, predictions, selectedId)
     );
     (map.getSource("selected-zone-anchor") as GeoJSONSource | undefined)?.setData(
-      selectedZoneAnchor(zones, selectedId)
+      selectedZoneAnchor(zones, predictions, selectedId)
     );
-    if (selectedId) focusZone(map, zones, selectedId);
-  }, [selectedId, zones]);
+    if (selectedId) focusZone(map, zones, predictions, selectedId);
+  }, [selectedId, zones, predictions]);
 
   return (
     <div
       ref={containerRef}
       className="h-full w-full"
-      aria-label="Mapa de zonas de aparcamiento no regulado"
+      aria-label="Mapa de predicción de aparcamiento y zonas municipales"
     />
   );
 }

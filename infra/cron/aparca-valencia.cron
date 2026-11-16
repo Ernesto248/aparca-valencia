@@ -5,6 +5,9 @@ CRON_TZ=Europe/Madrid
 # Datos municipales diarios
 15 2 * * * root cd /opt/aparca-valencia && docker compose -f compose.yaml -f compose.prod.yaml run --rm api python -m app.cli sync-unregulated >> /var/log/aparca-sync.log 2>&1
 
+# Predicción municipal de ocupación regulada cada hora
+10 * * * * root cd /opt/aparca-valencia && docker compose -f compose.yaml -f compose.prod.yaml run --rm api python -m app.cli sync-regulated >> /var/log/aparca-regulated-sync.log 2>&1
+
 # Copia PostgreSQL diaria
 45 2 * * * root /opt/aparca-valencia/infra/scripts/backup-postgres.sh >> /var/log/aparca-backup.log 2>&1
 

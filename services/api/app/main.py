@@ -21,8 +21,8 @@ app = FastAPI(
     title="Aparca València API",
     version="0.1.0",
     description=(
-        "Localización municipal de aparcamiento no regulado. "
-        "La disponibilidad de plazas no está confirmada."
+        "Predicción municipal de aparcamiento regulado e inventario de zonas no reguladas. "
+        "Las predicciones no garantizan una plaza."
     ),
     default_response_class=ORJSONResponse,
     docs_url="/docs",

@@ -62,6 +62,19 @@ export function getRecommendations(
   );
 }
 
+export function getPredictions(
+  latitude: number,
+  longitude: number,
+  radius: number,
+  horizonHours: number,
+  signal?: AbortSignal
+) {
+  return request<FeatureCollection>(
+    `/api/v1/parking/predictions?latitude=${latitude}&longitude=${longitude}&radius_meters=${radius}&horizon_hours=${horizonHours}&limit=100`,
+    signal
+  );
+}
+
 export function getRawFeatures(bbox: string, signal?: AbortSignal) {
   return request<FeatureCollection>(
     `/api/v1/parking/features?bbox=${encodeURIComponent(bbox)}&limit=5000`,

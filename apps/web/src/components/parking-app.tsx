@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertCircle, CarFront, ChevronUp, Database, ExternalLink, Info, LoaderCircle, MapPinned } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { getDataStatus, geocode, getNearby, getRawFeatures, getRecommendations } from "@/lib/api";
-import type { Destination, GeocodeCandidate } from "@/lib/types";
+import { getDataStatus, geocode, getNearby, getPredictions, getRawFeatures } from "@/lib/api";
+import type { Destination, GeocodeCandidate, ParkingPrediction, ProbabilityLevel } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { RecommendationCard } from "@/components/recommendation-card";
+import { PredictionCard } from "@/components/prediction-card";
 import { SearchPanel } from "@/components/search-panel";
 import { cn } from "@/lib/utils";
 
@@ -19,12 +19,46 @@ const ParkingMap = dynamic(() => import("@/components/parking-map"), {
 });
 
 const RADII = [250, 500, 750, 1000];
+const HORIZONS = [1, 6, 12, 24] as const;
+
+function predictionItems(data: Awaited<ReturnType<typeof getPredictions>> | undefined): ParkingPrediction[] {
+  if (!data) return [];
+  return data.features.flatMap((feature) => {
+    const properties = feature.properties;
+    const level = properties.probability_level;
+    if (
+      !feature.id ||
+      typeof properties.street_name !== "string" ||
+      typeof properties.latitude !== "number" ||
+      typeof properties.longitude !== "number" ||
+      typeof properties.distance_meters !== "number" ||
+      typeof properties.occupancy_percent !== "number" ||
+      typeof properties.horizon_hours !== "number" ||
+      typeof properties.imported_at !== "string" ||
+      (level !== "high" && level !== "medium" && level !== "low")
+    ) {
+      return [];
+    }
+    return [{
+      id: feature.id,
+      streetName: properties.street_name,
+      latitude: properties.latitude,
+      longitude: properties.longitude,
+      distanceMeters: properties.distance_meters,
+      occupancyPercent: properties.occupancy_percent,
+      probabilityLevel: level as ProbabilityLevel,
+      horizonHours: properties.horizon_hours as 1 | 6 | 12 | 24,
+      importedAt: properties.imported_at
+    }];
+  });
+}
 
 export function ParkingApp() {
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<GeocodeCandidate[]>([]);
   const [destination, setDestination] = useState<Destination | null>(null);
   const [radius, setRadius] = useState(500);
+  const [horizon, setHorizon] = useState<(typeof HORIZONS)[number]>(1);
   const [manualMode, setManualMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapFocus, setMapFocus] = useState(false);
@@ -53,9 +87,9 @@ export function ParkingApp() {
     queryFn: ({ signal }) => getNearby(destination!.latitude, destination!.longitude, radius, signal),
     enabled: Boolean(destination)
   });
-  const recommendationsQuery = useQuery({
-    queryKey: ["recommendations", destination?.latitude, destination?.longitude, radius],
-    queryFn: ({ signal }) => getRecommendations(destination!.latitude, destination!.longitude, radius, signal),
+  const predictionsQuery = useQuery({
+    queryKey: ["predictions", destination?.latitude, destination?.longitude, radius, horizon],
+    queryFn: ({ signal }) => getPredictions(destination!.latitude, destination!.longitude, radius, horizon, signal),
     enabled: Boolean(destination)
   });
   const rawQuery = useQuery({
@@ -108,10 +142,10 @@ export function ParkingApp() {
     );
   };
 
-  const items = recommendationsQuery.data?.items ?? [];
+  const items = predictionItems(predictionsQuery.data);
   const selectedItem = items.find((item) => item.id === selectedId) ?? null;
-  const loading = zonesQuery.isFetching || recommendationsQuery.isFetching;
-  const apiError = zonesQuery.error ?? recommendationsQuery.error ?? geocodeMutation.error;
+  const loading = zonesQuery.isFetching || predictionsQuery.isFetching;
+  const apiError = zonesQuery.error ?? predictionsQuery.error ?? geocodeMutation.error;
 
   const selectRecommendation = useCallback((id: string) => {
     setSelectedId(id);
@@ -130,11 +164,12 @@ export function ParkingApp() {
         <ParkingMap
           destination={destination}
           zones={zonesQuery.data}
+          predictions={predictionsQuery.data}
           rawFeatures={rawQuery.data}
           selectedId={selectedId}
           manualMode={manualMode}
           onManualSelect={manualSelect}
-          onZoneSelect={setSelectedId}
+          onZoneSelect={selectRecommendation}
           onDetailViewport={setDetailBbox}
         />
       </div>
@@ -143,7 +178,7 @@ export function ParkingApp() {
         <div className="pointer-events-auto mx-auto flex max-w-7xl items-center justify-between rounded-2xl bg-[var(--petrol)]/96 px-3 py-2.5 text-white shadow-xl backdrop-blur sm:px-4 sm:py-3">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/12 sm:size-10"><CarFront className="size-5" /></span>
-            <div className="min-w-0"><p className="truncate text-base font-extrabold leading-none sm:text-lg">Aparca València</p><p className="mt-1 hidden truncate text-[11px] text-white/70 min-[360px]:block">Datos abiertos · sin ocupación en tiempo real</p></div>
+            <div className="min-w-0"><p className="truncate text-base font-extrabold leading-none sm:text-lg">Aparca València</p><p className="mt-1 hidden truncate text-[11px] text-white/70 min-[360px]:block">Predicción municipal · datos abiertos</p></div>
           </div>
           <div className="hidden items-center gap-4 text-xs md:flex">
             <Link className="hover:underline" href="/fuentes">Fuentes</Link>
@@ -161,9 +196,9 @@ export function ParkingApp() {
           <div className="animate-rise md:hidden" aria-live="polite">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[var(--coral-strong)]">Zona resaltada en coral</p>
-                <h2 className="mt-1 truncate text-lg font-extrabold">{selectedItem.street_name}</h2>
-                <p className="mt-1 text-xs text-slate-600">A {Math.round(selectedItem.distance_meters)} m · disponibilidad desconocida</p>
+                <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[var(--coral-strong)]">Tramo previsto resaltado</p>
+                <h2 className="mt-1 truncate text-lg font-extrabold">{selectedItem.streetName}</h2>
+                <p className="mt-1 text-xs text-slate-600">Ocupación prevista {selectedItem.occupancyPercent}% · a {Math.round(selectedItem.distanceMeters)} m</p>
               </div>
               <Button size="sm" variant="secondary" onClick={() => setMapFocus(false)}>
                 <ChevronUp className="size-4" /> Ver lista
@@ -205,6 +240,23 @@ export function ParkingApp() {
                 </Button>
               ))}
             </div>
+            <div className="mt-2 grid grid-cols-4 gap-2" aria-label="Momento de llegada">
+              {HORIZONS.map((value) => (
+                <Button
+                  key={value}
+                  size="sm"
+                  variant={horizon === value ? "coral" : "secondary"}
+                  onClick={() => {
+                    setHorizon(value);
+                    setSelectedId(null);
+                    setMapFocus(false);
+                  }}
+                  className="px-2"
+                >
+                  +{value} h
+                </Button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -223,26 +275,26 @@ export function ParkingApp() {
 
         <div className="mt-5">
           <div className="mb-3 flex items-end justify-between gap-3">
-            <div><p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--coral-strong)]">Orden para buscar</p><h2 className="mt-1 text-xl font-extrabold">Zonas documentadas cercanas</h2></div>
+            <div><p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--coral-strong)]">Predicción municipal · +{horizon} h</p><h2 className="mt-1 text-xl font-extrabold">Dónde es más probable aparcar</h2></div>
             {loading && <LoaderCircle className="size-5 animate-spin text-[var(--petrol)]" />}
           </div>
 
           <div className="mb-3 flex gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 text-xs leading-5 text-slate-600">
             <Info className="mt-0.5 size-4 shrink-0 text-[var(--petrol)]" />
-            <p><strong className="text-[var(--ink)]">¿Por qué este orden?</strong> Un 75 % depende de la cercanía y un 25 % de la evidencia municipal agrupada. Sirve para decidir por dónde empezar a buscar; no calcula plazas libres.</p>
+            <p><strong className="text-[var(--ink)]">¿Por qué este orden?</strong> Primero va la menor ocupación prevista por el Ayuntamiento; la distancia solo desempata. Menos de 60% es probabilidad alta, 60–80% media y más de 80% baja.</p>
           </div>
 
           {!destination && <p className="rounded-2xl bg-white/80 p-4 text-sm leading-6 text-slate-600">Busca una dirección, pulsa en el mapa o comparte tu ubicación para ver zonas cercanas.</p>}
-          {destination && !loading && items.length === 0 && !apiError && <p className="rounded-2xl bg-white p-4 text-sm text-slate-600">No hay cobertura municipal en este radio. Prueba a ampliarlo o elige otro punto.</p>}
+          {destination && !loading && items.length === 0 && !apiError && <p className="rounded-2xl bg-white p-4 text-sm leading-6 text-slate-600">No hay predicción municipal de aparcamiento regulado en este radio. Las líneas grises del mapa son zonas libres documentadas, pero no tienen datos de ocupación.</p>}
           <div className="space-y-3">
             {items.map((item, index) => (
-              <RecommendationCard key={item.id} item={item} index={index} selected={selectedId === item.id} onSelect={() => selectRecommendation(item.id)} />
+              <PredictionCard key={item.id} item={item} index={index} selected={selectedId === item.id} onSelect={() => selectRecommendation(item.id)} />
             ))}
           </div>
         </div>
 
         <div className="mt-5 rounded-2xl bg-[var(--petrol)] p-4 text-xs leading-5 text-white/85">
-          <strong className="text-white">Importante:</strong> mostramos zonas de aparcamiento no regulado según datos municipales. La disponibilidad de plazas no está confirmada. Comprueba siempre la señalización.
+          <strong className="text-white">Importante:</strong> la predicción se aplica solo a tramos regulados y no garantiza una plaza. Las zonas libres se muestran como inventario, sin estimación de ocupación. Comprueba siempre la señalización.
         </div>
         <footer className="mt-4 flex justify-between pb-1 text-[11px] text-slate-500 md:hidden">
           <Link href="/fuentes">Fuentes y atribución</Link><Link href="/privacidad">Privacidad</Link>

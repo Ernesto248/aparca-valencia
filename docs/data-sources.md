@@ -11,7 +11,9 @@ Las geometrías observadas son muy pequeñas y cerradas. Se conservan sin afirma
 
 ## Predicción regulada
 
-Capas 254, 253, 252 y 4 para horizontes 1, 6, 12 y 24 horas. El adaptador es independiente, no mezcla datos con el inventario no regulado y permanece desactivado por defecto.
+Capas 254, 253, 252 y 4 para horizontes 1, 6, 12 y 24 horas. Cada capa contiene 257 tramos; actualmente 255 tienen un porcentaje de ocupación previsto entre 0 y 100 y 2 figuran sin dato. La simbología oficial clasifica la probabilidad de estacionamiento como alta cuando la ocupación es menor de 60%, media entre 60% y 80%, y baja por encima de 80%.
+
+El importador actualiza las cuatro capas de forma transaccional cada hora. La predicción se muestra solo sobre sus tramos regulados y nunca se extrapola al inventario no regulado.
 
 ## OpenStreetMap y Protomaps
 

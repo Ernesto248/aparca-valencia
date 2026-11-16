@@ -3,6 +3,7 @@ import pytest
 
 from app.integrations.arcgis import ArcGISClient
 from app.integrations.regulated import RegulatedPredictionAdapter
+from app.services.regulated_importer import probability_level
 
 
 @pytest.mark.asyncio
@@ -48,3 +49,11 @@ async def test_regulated_layer_is_kept_separate() -> None:
     assert records[0]["horizon_hours"] == 1
     assert records[0]["occupancy_prediction"] == 70
     assert "parking_type" not in records[0]
+
+
+@pytest.mark.parametrize(
+    ("occupancy", "expected"),
+    [(0, "high"), (59, "high"), (60, "medium"), (80, "medium"), (81, "low"), (100, "low")],
+)
+def test_probability_level_matches_municipal_renderer(occupancy: int, expected: str) -> None:
+    assert probability_level(occupancy) == expected
